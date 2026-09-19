@@ -1,0 +1,17 @@
+# Python / virtual environment
+.venv/
+__pycache__/
+*.pyc
+
+# Build artifacts (PyInstaller)
+build/
+dist/
+
+# IDE
+.idea/
+
+# Logs
+*.log
+
+# Internal backup asset, not used by the app
+data/images/X_original_450x400/
