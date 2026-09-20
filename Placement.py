@@ -293,6 +293,51 @@ EFFECTS_FORCE_CHART_Y = 25 + allEffectsY
 EFFECTS_FORCE_CHART_WIDTH = 190    # size, not a coordinate - leaves a gap on both sides before the sliders (x=379) and the gauge (x=592)
 EFFECTS_FORCE_CHART_HEIGHT = 286   # size, not a coordinate - matches the slider column's full height (311-25)
 
+# ------------------------------------------------------------------ ReadoutBar
+# ReadoutBar (main.py): the VCC/L1/L2/L3/FFB row below the toolbar's Port
+# row. Each of the 5 modules is one combined "Label: value" tk/ttk.Label
+# (e.g. "VCC: 10.3 V", "L1: 22.0 °C") place()d at its own explicit X/Y
+# instead of pack()ed left-to-right - per user request, so any module can
+# be freely repositioned just by editing its X/Y here, the same way every
+# other element in this app is positioned. WIDTH_PX per module reserves a
+# fixed pixel column (label anchor="w") so the row doesn't reflow as a live
+# value's text length changes (e.g. "9.9"->"60.0", "-5.0"->"40.0"). L1/L2/L3
+# each get their own X/Y/WIDTH_PX (not shared) so they can be rearranged
+# independently of each other.
+#
+# Starting positions below reproduce the previous pack()-based row exactly
+# (VCC, L1, L2, L3, FFB left-to-right, same worst-case widths that row was
+# sized against - "VCC: 60.0 V"=60px, "L1: -99.9 °C"=60px x3,
+# "FFB: +100 %"=64px, 5px gap between) - move any X/Y from here to
+# rearrange, nothing else needs to change.
+#
+# READOUTBAR_WIDTH_PX/HEIGHT_PX size ReadoutBar's own Frame explicitly -
+# required because place()d children (unlike pack()/grid()) never
+# propagate their size up to the parent, so without this the frame would
+# collapse to ~1x1px and none of the 5 modules would be visible.
+READOUTBAR_WIDTH_PX = 330
+READOUTBAR_HEIGHT_PX = 20
+
+READOUTBAR_VCC_X = 0
+READOUTBAR_VCC_Y = 0
+READOUTBAR_VCC_WIDTH_PX = 64
+
+READOUTBAR_L1_X = 65
+READOUTBAR_L1_Y = 0
+READOUTBAR_L1_WIDTH_PX = 60
+
+READOUTBAR_L2_X = 130
+READOUTBAR_L2_Y = 0
+READOUTBAR_L2_WIDTH_PX = 60
+
+READOUTBAR_L3_X = 195
+READOUTBAR_L3_Y = 0
+READOUTBAR_L3_WIDTH_PX = 60
+
+READOUTBAR_FFB_X = 260
+READOUTBAR_FFB_Y = 0
+READOUTBAR_FFB_WIDTH_PX = 70
+
 # -------------------------------------------------------------- Main layout
 # The "Inputs" and "Effects" blocks above used to sit in their own bordered
 # ttk.LabelFrame boxes ("Inputs"/"Effects" titles), each with an inner

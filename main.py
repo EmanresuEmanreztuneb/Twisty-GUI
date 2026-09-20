@@ -1610,57 +1610,66 @@ class ReadoutBar(ttk.Frame):
 
     VOLTAGE_POLL_INTERVAL_S = 0.2  # supply voltage changes slowly - poll far less often than apin.0.rawval/vesc.0.torque
 
-    # Gap between adjacent items (VCC | L1 | L2 | L3 | FFB), per user request
-    # tightened from 16 down to 5 - narrow enough to read as one compact
-    # group, but "Label: value" plus a real gap (not zero) still reads as
-    # distinct entries without needing a separator character. No padx after
-    # the last item (FFB) - trailing space there would just push past the
-    # intended right edge for no reason (see ITEM_WORST_CASE_WIDTH below).
-    ITEM_GAP_PX = 5
-
-    # Worst-case text width (measured via tkinter.font, TkDefaultFont) this
-    # row is sized against, so that even in the widest realistic case (FFB
-    # at +-100%, since torque is a +-100% quantity; VCC up to a 2-digit
-    # voltage; temps up to a negative 2-digit reading) the row's right edge
-    # still lands at/before the Port dropdown's right edge (per user
-    # request) - narrower actual values just leave a little slack on the
-    # right instead of overflowing. Re-measure and adjust ITEM_GAP_PX if
-    # the port dropdown's width (main.py's ttk.Combobox(..., width=45)) or
-    # the app's font ever changes.
-    # "VCC: 60.0 V"=60px, "L1: -99.9 °C"=60px (x3), "FFB: +100 %"=64px ->
-    # 60*4 + 64 = 304px content + 4 gaps * 5px = 324px, vs. 326px available
-    # (Port dropdown's measured right edge 334, minus this row's own left
-    # indent of 8, see App._build_ui()).
+    # Each of the 5 modules (VCC, L1, L2, L3, FFB) is place()d at its own
+    # explicit X/Y/WIDTH_PX from Placement.py (P.READOUTBAR_*) instead of
+    # pack()ed left-to-right - per user request, so any module can be
+    # freely repositioned just by editing its X/Y there. This frame's own
+    # size (P.READOUTBAR_WIDTH_PX/HEIGHT_PX, passed to __init__ below) must
+    # stay set explicitly for the same reason: place()d children never
+    # propagate their size up to the parent the way pack()/grid() children
+    # do. Maps each temp channel's L-number (1/2/3) to its own X/Y/WIDTH_PX
+    # constants.
+    _TEMP_XYW = {
+        1: (P.READOUTBAR_L1_X, P.READOUTBAR_L1_Y, P.READOUTBAR_L1_WIDTH_PX),
+        2: (P.READOUTBAR_L2_X, P.READOUTBAR_L2_Y, P.READOUTBAR_L2_WIDTH_PX),
+        3: (P.READOUTBAR_L3_X, P.READOUTBAR_L3_Y, P.READOUTBAR_L3_WIDTH_PX),
+    }
 
     def __init__(self, parent, link, **kwargs):
+        kwargs.setdefault("width", P.READOUTBAR_WIDTH_PX)
+        kwargs.setdefault("height", P.READOUTBAR_HEIGHT_PX)
         super().__init__(parent, **kwargs)
         self.link = link
         self._last_voltage_poll = 0.0
         self.temp_channels = {}  # pin_index -> {"index", "prefix", "label"}
 
-        # Plain tk.Label (not ttk.Label) for voltage_label and the 3 temp
-        # labels below - these need a per-instance background color for
+        # Plain tk.Label (not ttk.Label) for all 5 modules - voltage_label
+        # and the 3 temp labels need a per-instance background color for
         # the low-voltage/overtemperature warnings (this class's
         # _voltage_cb, App._apply_bg_stage), and ttk.Label's background
         # under Windows' native "vista" theme doesn't reliably respond to
         # per-widget style overrides (same recurring issue as
         # Black.TCheckbutton/DegreeButton.TButton elsewhere in this file)
         # - tk.Label's own bg= always works directly, no style plumbing
-        # needed. force_label has no such warning, so it stays a plain
-        # ttk.Label.
+        # needed. force_label has no such warning and used to be a plain
+        # ttk.Label - switched to tk.Label too (per user finding) since
+        # ttk.Label's theme reserves slightly different internal padding
+        # than tk.Label, which under the old pack() layout was invisible
+        # (pack() aligned every item to the same row regardless) but
+        # showed up as a visible few-px vertical offset once each module
+        # got its own place()d y= box sized to its own natural height -
+        # matching widget types keeps all 5 boxes the same height.
         self._default_bg = ttk.Style().lookup("TFrame", "background")
 
-        self.voltage_label = tk.Label(self, text="VCC: --.- V", bg=self._default_bg)
-        self.voltage_label.pack(side="left", padx=(0, self.ITEM_GAP_PX))
+        # anchor="w" keeps each label's text left-aligned within its fixed
+        # WIDTH_PX column (place()'s own default would otherwise center it,
+        # visibly shifting as the live value's text length changes).
+        self.voltage_label = tk.Label(self, text="VCC: --.- V", bg=self._default_bg, anchor="w")
+        self.voltage_label.place(
+            x=P.READOUTBAR_VCC_X, y=P.READOUTBAR_VCC_Y, width=P.READOUTBAR_VCC_WIDTH_PX,
+        )
 
         for i, pin_index in enumerate(TEMP_PIN_INDICES):
             prefix = f"L{i + 1}"
-            label = tk.Label(self, text=f"{prefix}: --.- °C", bg=self._default_bg)
-            label.pack(side="left", padx=(0, self.ITEM_GAP_PX))
+            x, y, w = self._TEMP_XYW[i + 1]
+            label = tk.Label(self, text=f"{prefix}: --.- °C", bg=self._default_bg, anchor="w")
+            label.place(x=x, y=y, width=w)
             self.temp_channels[pin_index] = {"index": None, "prefix": prefix, "label": label}
 
-        self.force_label = ttk.Label(self, text="FFB: -- %")
-        self.force_label.pack(side="left")
+        self.force_label = tk.Label(self, text="FFB: -- %", bg=self._default_bg, anchor="w")
+        self.force_label.place(
+            x=P.READOUTBAR_FFB_X, y=P.READOUTBAR_FFB_Y, width=P.READOUTBAR_FFB_WIDTH_PX,
+        )
 
     def on_connected(self):
         self.link.register("vesc", "voltage", self._voltage_cb, instance=0, typechar="?")
