@@ -2,7 +2,7 @@
 
 A standalone Windows desktop configurator for the [Twisty-OpenFFBoard-Firmware](https://github.com/EmanresuEmanreztuneb/Twisty-OpenFFBoard-Firmware), a custom [OpenFFBoard](https://github.com/Ultrawipf/OpenFFBoard) fork for a VESC-driven DIY force-feedback steering wheel / wheelbase.
 
-<img width="640" height="431" alt="Twisty-Demo" src="https://github.com/user-attachments/assets/cf14a89d-0b3d-4c6f-90a0-253f7120482c" />
+<img width="640" height="431" alt="Twisty-Demo" src="docs/Twisty-Demo.gif" />
 
 
 ## Download (no Python required)
