@@ -64,6 +64,13 @@ def parse_infostring(reply):
 # the same divider (see ntc_raw_to_celsius) until proven otherwise.
 TEMP_PIN_INDICES = (3, 4, 5)
 
+# Prefix of the firmware's wire-break failsafe error line, as produced by
+# Error::toString() ("{code}:{type}:{info}") for ErrorCode::temperatureImplausible
+# = 16 (see ErrorHandler.h). Used to detect that fault from the plain-text
+# sys.errors reply already polled for the log window (_on_fw_errors) instead
+# of adding a second, dedicated poll/command just for this one flag.
+FW_ERROR_PREFIX_TEMP_IMPLAUSIBLE = "16:"
+
 # Temperature-readout background color by overtemperature stage (L1/L2/L3
 # in ReadoutBar - see App._apply_bg_stage; an earlier version colored the
 # entire window/every ttk style instead, removed per user request). Driven
@@ -2574,6 +2581,7 @@ class App(tk.Tk):
         self._port_map = {}
 
         self._bg_stage = 0
+        self._implausible_temp_fault = False
         self._default_bg = ttk.Style().lookup("TFrame", "background")
         self._known_fw_errors = set()
 
@@ -2870,7 +2878,18 @@ class App(tk.Tk):
         if stage == self._bg_stage:
             return
         self._bg_stage = stage
-        color = TEMP_BG_COLORS[stage] or self._default_bg
+        self._update_temp_bg()
+
+    def _update_temp_bg(self):
+        """Combines the overtemperature stage and the wire-break failsafe
+        into one background color, same "worst wins" rule as the firmware's
+        force limit (Pt100Monitor.cpp): a critical overtemp (stage 2) or an
+        active implausible-temperature fault both use the same red as
+        TEMP_BG_COLORS[2], regardless of which one is currently true."""
+        if self._bg_stage == 2 or self._implausible_temp_fault:
+            color = TEMP_BG_COLORS[2]
+        else:
+            color = TEMP_BG_COLORS[self._bg_stage] or self._default_bg
         for ch in self.readout_bar.temp_channels.values():
             ch["label"].configure(bg=color)
 
@@ -3012,6 +3031,14 @@ class App(tk.Tk):
             self._log(f"[{time.strftime('%H:%M:%S')}] Error: {line}")
 
         self._known_fw_errors = current
+
+        # Drives the same red L1/L2/L3 background as a critical overtemp
+        # (see _update_temp_bg) - reacts within one error-poll cycle (300ms)
+        # of the fault actually clearing/latching in the firmware.
+        implausible_now = any(line.startswith(FW_ERROR_PREFIX_TEMP_IMPLAUSIBLE) for line in current)
+        if implausible_now != self._implausible_temp_fault:
+            self._implausible_temp_fault = implausible_now
+            self._update_temp_bg()
 
     def _on_error_reset(self):
         if not self.link.connected:
